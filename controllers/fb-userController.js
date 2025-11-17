@@ -3,7 +3,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 async function ragistar(req, res) {
     try {
-        const {name,userName, password,surname,day,month,year,gender } = req.body;
+        const { name, userName, password, surname, day, month, year, gender, role } = req.body;
 
         if (!userName || !password) {
             return res.status(400).json({ message: "Username and password fields are required" });
@@ -13,7 +13,7 @@ async function ragistar(req, res) {
             return res.status(409).json({ message: "Username already exists" });
         }
         const hashPassword = await bcrypt.hash(password, 10)
-        const newUser = new User({ userName, name, password: hashPassword, surname,day,month,year,gender });
+        const newUser = new User({ userName, name, password: hashPassword, surname, day, month, year, gender, role });
         await newUser.save();
 
         res.status(201).json({ message: "User registered successfully", user: newUser });
@@ -42,10 +42,21 @@ async function signup(req, res) {
         if (!isMatch) {
             return res.status(401).json({ message: "invalid credencial" })
         }
+        const token = jwt.sign({ id: user._id, userName: user.userName, role: user.role }, "your_jwt_is_secret", { expiresIn: "1h" })
+        
+        res.cookie("token", token, {
+            httpOnly: true,
+            secure: false, 
+            sameSite: "lax",
+            maxAge: 1000 * 60 * 60 
+        });
 
-        const token = jwt.sign({ id: user._id, userName: user.userName }, "your_jwt_is_secret", { expiresIn: "1h" })
+        res.status(200).json({
+            message: "Login successfully",
+            role: user.role,
+            token:token
+        });
 
-        res.status(201).json({ message: "login successfully", token: token })
     } catch (error) {
         console.log(error, "server error");
 

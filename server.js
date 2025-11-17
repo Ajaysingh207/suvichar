@@ -3,15 +3,14 @@ const dbConnectt = require("./db/dbConnect");
 
 const userRoutes = require("./routes/userRoutes");
 const cors = require("cors")
+const cookieParser = require("cookie-parser");
 
 
 const app = express();
 const port = 3000;
 
-// Connect to MongoDB
 dbConnectt();
 
-// Middleware to parse JSON
 app.use(express.json());
 
 app.use(
@@ -22,8 +21,9 @@ app.use(
   })
 );
 
-// Routes
+app.use(cookieParser());
+
+
 app.use("/api", userRoutes);
 
-// Start server
 app.listen(port, () => console.log(`Server is running on http://localhost:${port}`));
