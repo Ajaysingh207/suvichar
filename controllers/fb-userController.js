@@ -43,18 +43,19 @@ async function signup(req, res) {
             return res.status(401).json({ message: "invalid credencial" })
         }
         const token = jwt.sign({ id: user._id, userName: user.userName, role: user.role }, "your_jwt_is_secret", { expiresIn: "1h" })
-        
+
         res.cookie("token", token, {
             httpOnly: true,
-            secure: false, 
+            secure: false,
             sameSite: "lax",
-            maxAge: 1000 * 60 * 60 
+            maxAge: 1000 * 60 * 60
         });
 
         res.status(200).json({
             message: "Login successfully",
             role: user.role,
-            token:token
+            user: user._id,
+            token: token
         });
 
     } catch (error) {
@@ -64,4 +65,21 @@ async function signup(req, res) {
 
 }
 
-module.exports = { ragistar, signup } 
+async function getAllUser(req, res) {
+    try {
+        const user = await User.find()
+        if (user.length === 0) {
+           return res.status(404).json({ message: "user not found" })
+        }
+
+      return  res.status(200).json({ user: user, message: "all users " })
+    }
+    catch (error) {
+        console.log(error, "something went wrong ");
+        return res.status(500).json({ message: "Server error" });
+    }
+
+}
+
+
+module.exports = { ragistar, signup, getAllUser } 

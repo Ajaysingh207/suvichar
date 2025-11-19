@@ -1,13 +1,14 @@
 const Message = require("../models/messages");
 
 // Socket.io controller
+
 function chatController(io) {
     io.on("connection", (socket) => {
         console.log("User connected:", socket.id);
 
         // Join a chat room
         socket.on("joinRoom", ({ senderId, receiverId }) => {
-            const roomId = `${senderId}_${receiverId}`;
+            const roomId = [senderId, receiverId].sort().join("_"); // FIXED
             socket.join(roomId);
             console.log(`User joined room: ${roomId}`);
         });
@@ -18,7 +19,7 @@ function chatController(io) {
                 const newMessage = new Message({ sender, receiver, message });
                 await newMessage.save();
 
-                const roomId = `${sender}_${receiver}`;
+                const roomId = [sender, receiver].sort().join("_"); // FIXED
                 io.to(roomId).emit("receiveMessage", newMessage);
             } catch (err) {
                 console.error("Error saving message:", err);
@@ -31,6 +32,36 @@ function chatController(io) {
     });
 }
 
+// function chatController(io) {
+//     io.on("connection", (socket) => {
+//         console.log("User connected:", socket.id);
+
+//         // Join a chat room
+//         socket.on("joinRoom", ({ senderId, receiverId }) => {
+//             const roomId = `${senderId}_${receiverId}`;
+//             socket.join(roomId);
+//             console.log(`User joined room: ${roomId}`);
+//         });
+
+//         // Handle sending message via socket
+//         socket.on("sendMessage", async ({ sender, receiver, message }) => {
+//             try {
+//                 const newMessage = new Message({ sender, receiver, message });
+//                 await newMessage.save();
+
+//                 const roomId = `${sender}_${receiver}`;
+//                 io.to(roomId).emit("receiveMessage", newMessage);
+//             } catch (err) {
+//                 console.error("Error saving message:", err);
+//             }
+//         });
+
+//         socket.on("disconnect", () => {
+//             console.log("User disconnected:", socket.id);
+//         });
+//     });
+// }
+
 // Express route handler
 async function SendMessage(req, res) {
     try {
@@ -41,6 +72,7 @@ async function SendMessage(req, res) {
             receiver,
             message,
             createdAt: new Date()
+
         });
 
         await newMessage.save();
@@ -63,6 +95,7 @@ async function getAllMessage(req, res)  {
 
     res.json(messages);
 };
+
 module.exports = { chatController, SendMessage,getAllMessage };
 
 
