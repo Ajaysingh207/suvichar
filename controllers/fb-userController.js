@@ -1,6 +1,7 @@
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const messages = require("../models/messages");
 async function ragistar(req, res) {
     try {
         const { name, userName, password, surname, day, month, year, gender, role } = req.body;
@@ -13,7 +14,7 @@ async function ragistar(req, res) {
             return res.status(409).json({ message: "Username already exists" });
         }
         const hashPassword = await bcrypt.hash(password, 10)
-        const newUser = new User({ userName, name, password: hashPassword, surname, day, month, year, gender, role });
+        const newUser = new User({ userName, name, password: hashPassword, surname, day, month, year, gender, role, image: req.file ? req.file.filename : null });
         await newUser.save();
 
         res.status(201).json({ message: "User registered successfully", user: newUser });
@@ -65,14 +66,30 @@ async function signup(req, res) {
 
 }
 
+async function getUserById(req, res) {
+    try {
+        const { id } = req.params;
+
+        const user = await User.findById(id).select("-password"); 
+
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        return res.status(200).json({ message: "User found", user });
+    } catch (error) {
+        console.log("Error getting user by ID:", error);
+        return res.status(500).json({ message: "Server error" });
+    }
+}
 async function getAllUser(req, res) {
     try {
         const user = await User.find()
         if (user.length === 0) {
-           return res.status(404).json({ message: "user not found" })
+            return res.status(404).json({ message: "user not found" })
         }
 
-      return  res.status(200).json({ user: user, message: "all users " })
+        return res.status(200).json({ user: user, message: "all users " })
     }
     catch (error) {
         console.log(error, "something went wrong ");
@@ -80,6 +97,67 @@ async function getAllUser(req, res) {
     }
 
 }
+ const updateProfilePic = async (req, res) => {
+    try {
+        console.log("File received:", req.file);
+        console.log("Body:", req.body);
+
+        const { userId } = req.body;
+
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: "No image uploaded"
+            });
+        }
+
+        const imageName = req.file.filename;
+
+        const updatedUser = await User.findByIdAndUpdate(
+            userId,
+            { image: imageName },
+            { new: true }
+        );
+
+        if (!updatedUser) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found"
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Profile picture updated",
+            user: updatedUser
+        });
+
+    } catch (error) {
+        console.error("Error updating profile picture:", error);
+        return res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+};
 
 
-module.exports = { ragistar, signup, getAllUser } 
+
+ const logout =  async (req, res) => {
+  res.clearCookie("token", {
+    httpOnly: true,
+    secure: false, 
+    sameSite: "lax",
+  });
+
+  return res.status(200).json({
+    success: true,
+    message: "Logged out successfully",
+  });
+};
+
+module.exports = { ragistar, signup, getAllUser,getUserById,updateProfilePic ,logout }
+
+
+
+
