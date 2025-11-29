@@ -45,7 +45,6 @@ const UserModel = new mongoose.Schema({
     default: null
 }
 
-
 })
 
 const User = mongoose.model("User", UserModel)

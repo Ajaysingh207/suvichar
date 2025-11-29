@@ -16,7 +16,6 @@ async function ragistar(req, res) {
         const hashPassword = await bcrypt.hash(password, 10)
         const newUser = new User({ userName, name, password: hashPassword, surname, day, month, year, gender, role, image: req.file ? req.file.filename : null });
         await newUser.save();
-
         res.status(201).json({ message: "User registered successfully", user: newUser });
     } catch (error) {
         console.error("Error in createUser:", error);
@@ -156,7 +155,17 @@ async function getAllUser(req, res) {
   });
 };
 
-module.exports = { ragistar, signup, getAllUser,getUserById,updateProfilePic ,logout }
+async function userUpdate (res,req){
+ const id = req.body
+
+}
+
+async function userDelete(res,req){
+ const id = req.body
+
+}
+
+module.exports = { ragistar, signup, getAllUser,getUserById,updateProfilePic ,logout,userUpdate }
 
 
 
