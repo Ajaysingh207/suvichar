@@ -20,11 +20,15 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use("/uploads", express.static("uploads"));
 
-app.use(cors({
-    origin: "*",
+
+
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL,
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
-}));
+  })
+);
 
 app.use("/api", userRoutes);
 app.use("/", (req, res) => {
@@ -33,11 +37,11 @@ app.use("/", (req, res) => {
 
 // Attach Socket.io Server
 const io = new Server(server, {
-    cors: {
-        origin: "*",
-        methods: ["GET", "POST"],
-        credentials: true
-    }
+  cors: {
+    origin: process.env.FRONTEND_URL,
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
 });
 
 // Move all socket logic to controller
