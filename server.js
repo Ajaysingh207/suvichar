@@ -27,6 +27,9 @@ app.use(cors({
 }));
 
 app.use("/api", userRoutes);
+app.use("/", (req, res) => {
+    res.send("you are hosting in vercel");
+});
 
 // Attach Socket.io Server
 const io = new Server(server, {
