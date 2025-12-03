@@ -1,5 +1,5 @@
-const Message = require("../models/messages");
 // controllers/chatController.js
+const Message = require("../models/messages");
 
 function chatController(io) {
   const onlineUsers = {}; // { userId: socketId }
@@ -7,10 +7,10 @@ function chatController(io) {
   io.on("connection", (socket) => {
     console.log("Socket connected:", socket.id);
 
-    // When client announces its userId after connection
+    /* ------------------------- USER ONLINE STATUS ------------------------- */
     socket.on("userOnline", (userId) => {
       onlineUsers[userId] = socket.id;
-      io.emit("onlineUsers", Object.keys(onlineUsers)); // broadcast list of online userIds
+      io.emit("onlineUsers", Object.keys(onlineUsers));
       console.log("User online:", userId);
     });
 
@@ -20,75 +20,82 @@ function chatController(io) {
       console.log("User offline:", userId);
     });
 
-    // Join a deterministic room for the pair (sorted)
+    /* ------------------------- USER JOINS ROOM ---------------------------- */
     socket.on("joinRoom", ({ senderId, receiverId }) => {
       const roomId = [senderId, receiverId].sort().join("_");
       socket.join(roomId);
-      // optionally emit who joined
-      // socket.to(roomId).emit("userJoinedRoom", { userId: senderId });
-      // console.log(`Socket ${socket.id} joined ${roomId}`);
+      console.log(`User joined room: ${roomId}`);
     });
 
-    // Typing indicator
+    /* ------------------------- TYPING INDICATOR --------------------------- */
     socket.on("typing", ({ from, to }) => {
-      // notify only the recipient (if online)
-      const toSocket = onlineUsers[to];
-      if (toSocket) io.to(toSocket).emit("typing", { from });
-    });
-
-    socket.on("stopTyping", ({ from, to }) => {
-      const toSocket = onlineUsers[to];
-      if (toSocket) io.to(toSocket).emit("stopTyping", { from });
-    });
-
-    // Sending message
-    socket.on("sendMessage", async ({ sender, receiver, message }) => {
-      try {
-        // Save to DB
-        const newMessage = new Message({ sender, receiver, message });
-        const saved = await newMessage.save();
-
-        // Determine room (sorted)
-        const roomId = [sender, receiver].sort().join("_");
-
-        // Emit single event to the room
-        io.to(roomId).emit("receiveMessage", {
-          _id: saved._id,
-          sender: saved.sender.toString(),
-          receiver: saved.receiver.toString(),
-          message: saved.message,
-          createdAt: saved.createdAt || new Date().toISOString()
-        });
-
-        // Optionally notify recipient separately (if they are not in the room)
-        const recipientSocket = onlineUsers[receiver];
-        if (recipientSocket) {
-          // we already emitted to the room; this is only for push-like notifications
-          io.to(recipientSocket).emit("newMessageNotification", {
-            from: sender,
-            message: saved.message,
-            createdAt: saved.createdAt || new Date().toISOString()
-          });
-        }
-      } catch (err) {
-        console.error("Error in sendMessage:", err);
+      const receiverSocket = onlineUsers[to];
+      if (receiverSocket) {
+        io.to(receiverSocket).emit("typing", { from });
       }
     });
 
-    // Message seen (read receipt) — client emits when they open a chat or view a message
-    socket.on("messageSeen", ({ messageId, seenBy, chatWith }) => {
-      // Broadcast to the other user in that chat that messageId has been seen
-      // chatWith is the id of the other user in that conversation
-      const roomId = [seenBy, chatWith].sort().join("_");
-      io.to(roomId).emit("messageSeenUpdate", { messageId, seenBy, chatWith });
+    socket.on("stopTyping", ({ from, to }) => {
+      const receiverSocket = onlineUsers[to];
+      if (receiverSocket) {
+        io.to(receiverSocket).emit("stopTyping", { from });
+      }
     });
 
+    /* ---------------------------- SEND MESSAGE ---------------------------- */
+    socket.on("sendMessage", async ({ sender, receiver, message }) => {
+      try {
+        const newMessage = new Message({
+          sender,
+          receiver,
+          message,
+          createdAt: new Date()
+        });
+
+        const saved = await newMessage.save();
+
+        const roomId = [sender, receiver].sort().join("_");
+
+        // Emit real-time message to both users in the room
+        io.to(roomId).emit("receiveMessage", {
+          _id: saved._id,
+          sender: saved.sender,
+          receiver: saved.receiver,
+          message: saved.message,
+          createdAt: saved.createdAt
+        });
+
+        
+        const receiverSocket = onlineUsers[receiver];
+        if (receiverSocket) {
+          io.to(receiverSocket).emit("newMessageNotification", {
+            from: sender,
+            message: saved.message,
+            createdAt: saved.createdAt
+          });
+        }
+      } catch (err) {
+        console.error("Error sending message:", err);
+      }
+    });
+
+    /* ------------------------------ SEEN STATUS --------------------------- */
+    socket.on("messageSeen", ({ messageId, seenBy, chatWith }) => {
+      const roomId = [seenBy, chatWith].sort().join("_");
+      io.to(roomId).emit("messageSeenUpdate", {
+        messageId,
+        seenBy,
+        chatWith
+      });
+    });
+
+    /* ------------------------------ DISCONNECT ---------------------------- */
     socket.on("disconnect", () => {
-      // Remove user from onlineUsers if present
-      for (const [uid, sid] of Object.entries(onlineUsers)) {
-        if (sid === socket.id) {
-          delete onlineUsers[uid];
+      for (const [userId, socketId] of Object.entries(onlineUsers)) {
+        if (socketId === socket.id) {
+          delete onlineUsers[userId];
           io.emit("onlineUsers", Object.keys(onlineUsers));
+          console.log("User offline:", userId);
           break;
         }
       }
@@ -97,72 +104,49 @@ function chatController(io) {
   });
 }
 
+/* -------------------------------------------------------------------------- */
+/*                               EXPRESS ROUTES                               */
+/* -------------------------------------------------------------------------- */
 
-
-// function chatController(io) {
-//     io.on("connection", (socket) => {
-//         console.log("User connected:", socket.id);
-
-//         // Join a chat room
-//         socket.on("joinRoom", ({ senderId, receiverId }) => {
-//             const roomId = `${senderId}_${receiverId}`;
-//             socket.join(roomId);
-//             console.log(`User joined room: ${roomId}`);
-//         });
-
-//         // Handle sending message via socket
-//         socket.on("sendMessage", async ({ sender, receiver, message }) => {
-//             try {
-//                 const newMessage = new Message({ sender, receiver, message });
-//                 await newMessage.save();
-
-//                 const roomId = `${sender}_${receiver}`;
-//                 io.to(roomId).emit("receiveMessage", newMessage);
-//             } catch (err) {
-//                 console.error("Error saving message:", err);
-//             }
-//         });
-
-//         socket.on("disconnect", () => {
-//             console.log("User disconnected:", socket.id);
-//         });
-//     });
-// }
-
-// Express route handler
 async function SendMessage(req, res) {
-    try {
-        const { sender, receiver, message } = req.body;
+  try {
+    const { sender, receiver, message } = req.body;
 
-        const newMessage = new Message({
-            sender,
-            receiver,
-            message,
-            createdAt: new Date()
+    const newMessage = new Message({
+      sender,
+      receiver,
+      message,
+      createdAt: new Date()
+    });
 
-        });
+    await newMessage.save();
 
-        await newMessage.save();
-        res.status(201).json({ success: true, message: "Message sent" });
-    } catch (error) {
-        console.log(error);
-        res.status(500).json({ error: "Failed to send message" });
-    }
+    return res.status(201).json({
+      success: true,
+      message: "Message sent successfully"
+    });
+  } catch (error) {
+    console.error("Error sending message:", error);
+    return res.status(500).json({ error: "Failed to send message" });
+  }
 }
 
-async function getAllMessage(req, res)  {
+async function getAllMessage(req, res) {
+  try {
     const { sender, receiver } = req.params;
 
     const messages = await Message.find({
-        $or: [
-            { sender, receiver },
-            { sender: receiver, receiver: sender }
-        ]
+      $or: [
+        { sender, receiver },
+        { sender: receiver, receiver: sender }
+      ]
     }).sort({ createdAt: 1 });
 
-    res.json(messages);
-};
+    return res.json(messages);
+  } catch (error) {
+    console.error("Error fetching messages:", error);
+    return res.status(500).json({ error: "Failed to get messages" });
+  }
+}
 
-module.exports = { chatController, SendMessage,getAllMessage };
-
-
+module.exports = { chatController, SendMessage, getAllMessage };

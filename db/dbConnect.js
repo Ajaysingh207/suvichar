@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
  async function dbConnectt (){
     try{
 
-      await  mongoose.connect ("mongodb://localhost:27017/facebook")
+      await  mongoose.connect(process.env.MONGO_URL)
         console.log("mongodb successfully connect");
         
 

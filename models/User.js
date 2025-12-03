@@ -43,9 +43,26 @@ const UserModel = new mongoose.Schema({
     image: {
     type: String,
     default: null
-}
+},
 
-})
+blockedUsers: [
+        { type: mongoose.Schema.Types.ObjectId, ref: "User" }
+    ],
+
+    friends: [
+        { type: mongoose.Schema.Types.ObjectId, ref: "User" }
+    ],
+
+    friendRequests: {
+        sent: [
+            { type: mongoose.Schema.Types.ObjectId, ref: "User" }
+        ],
+        received: [
+            { type: mongoose.Schema.Types.ObjectId, ref: "User" }
+        ]
+    }
+});
+
 
 const User = mongoose.model("User", UserModel)
 

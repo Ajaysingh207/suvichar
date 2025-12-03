@@ -1,8 +1,10 @@
+require('dotenv').config();
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
+
 
 const dbConnectt = require("./db/dbConnect");
 const userRoutes = require("./routes/userRoutes");
@@ -10,7 +12,7 @@ const {chatController} = require("./controllers/chatController");
 
 const app = express();
 const server = http.createServer(app);
-const port = 3000;
+
 dbConnectt();
 
 app.use(express.json());
@@ -39,6 +41,6 @@ const io = new Server(server, {
 
 chatController(io);
 
-
+ const port = process.env.PORT
 server.listen(port, () => console.log(`Server running on http://localhost:${port}`));
   
